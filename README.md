@@ -41,11 +41,11 @@ from DownscaleSatelliteLST import DownscaledLST
 
 # Make an instance of the class
 data = DownscaledLST(
-        LST=gdal.Open("inputLST.tif"),				 # A gdal.dataset with 1 or more bands
-        predictors=gdal.Open("LSTpredictors.tif"),   # A gdal.dataset with 1 or more bands
-        LST_noDataVal=-1000,						 # The NoData value of the LST data
-        predictors_noDataVal=-1000,					 # The NoData value of the predictors
-        workdir="./DLST_save_folder",				 # A string with the working dir
+        LST=gdal.Open("inputLST.tif"),				 
+        predictors=gdal.Open("LSTpredictors.tif"),   
+        LST_noDataVal=-1000,						
+        predictors_noDataVal=-1000,		
+        workdir="./DLST_save_folder",
         )
 
 # The class uses four regressors from scikit-learn and combines them
