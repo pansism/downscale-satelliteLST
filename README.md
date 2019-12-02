@@ -83,6 +83,16 @@ data.SaveDLSTasGeotiff(savename="DLST.tif")
 - Implement a function for finding the best parameters for each regressor
 - Add unittests
 
-
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+If you use this class please cite:
+
+    @phdthesis{Sismanidis2018,
+        author = {Sismanidis, Panagiotis},
+        pages  = {154},
+        school = {National Technical University of Athens},
+        title  = {{Applying Computation Methods for Processing Thermal Satellite Images of Urban Areas}},
+        type   = {PhD Dissertation},
+        year   = {2018}
+    }
