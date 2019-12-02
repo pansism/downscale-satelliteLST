@@ -1,8 +1,8 @@
 # downscale-satelliteLST
-A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling. The target resolution is determined by the LST predictors.
+A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling.
 
 ## Description
-This class implements the typical workflow of a statistical downscaling scheme for enhancing the spatial resolution of satellite-derived Land Surface Temperatures (LST). It uses [GDAL](https://gdal.org/python/) to perform the resampling of the raster data and [scikit-learn](https://scikit-learn.org/stable/) for building the regression models data by combining two CART regressors ([ADAboost][sklern-adaboostRegr] & [Random Forest][sklern-RFregr]) and two linear regressors ([ElasticNET][sklern-elastnet] & [Ridge][sklern-rifge]) into an ensemble [VotingRegressor][sklern-voting].
+This class implements the typical workflow of a statistical downscaling scheme for enhancing the spatial resolution of satellite-derived Land Surface Temperatures (LST). It uses [GDAL](https://gdal.org/python/) to perform the resampling of the raster data and [scikit-learn](https://scikit-learn.org/stable/) for the regression by combining two CART regressors ([ADAboost][sklern-adaboostRegr] & [Random Forest][sklern-RFregr]) and two linear regressors ([ElasticNET][sklern-elastnet] & [Ridge][sklern-rifge]) into an ensemble [VotingRegressor][sklern-voting].
 
 Before using the class, the user **must**: (a) prepare and standarize the predictors; and (b) determine the best hyperparameters for each one of the employed `AdaBoost`, `RandomForest`, `ElasticNet` and `Ridge` regressors. The required hyperparameters are:
 
@@ -23,7 +23,7 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 1. **LST**: A single raster dataset with one or more bands, where each band is a LST array.
 2. **Predictors**: A single raster dataset with one or more bands, where each band is a predictor. Each band of the predictors should be standardized, i.e. centered over zero and with a variance of one.
 
-The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster to be correctly defined. If any of them is missing then the downscaling fuction will raise an error and stop. 
+The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster are correctly defined. If any of them is missing then the downscaling fuction will raise an error and stop. 
 
 ### Checks for downscaling the LST data:
 If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters `SetMissingPxlsThreshold()` and `SetR2Threshold()`, respectively.
