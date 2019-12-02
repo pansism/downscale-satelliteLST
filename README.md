@@ -2,7 +2,7 @@
 A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling.
 
 ## Description
-This class implements the typical workflow of a statistical downscaling scheme for enhancing the spatial resolution of satellite-derived Land Surface Temperatures (LST). It uses [GDAL](https://gdal.org/python/) to perform the resampling of the raster data and [scikit-learn](https://scikit-learn.org/stable/) for the regression by combining two CART regressors ([ADAboost][sklern-adaboostRegr] & [Random Forest][sklern-RFregr]) and two linear regressors ([ElasticNET][sklern-elastnet] & [Ridge][sklern-rifge]) into an ensemble [VotingRegressor][sklern-voting].
+This class implements the typical workflow of a statistical downscaling scheme for enhancing the spatial resolution of satellite-derived Land Surface Temperatures (LST). It uses [GDAL](https://gdal.org/python/) to perform the resampling of the raster data and [scikit-learn](https://scikit-learn.org/stable/) for building the regression models by combining two CART regressors ([ADAboost][sklern-adaboostRegr] & [Random Forest][sklern-RFregr]) and two linear regressors ([ElasticNET][sklern-elastnet] & [Ridge][sklern-rifge]) into an ensemble [VotingRegressor][sklern-voting].
 
 Before using the class, the user **must**: (a) prepare and standarize the predictors; and (b) determine the best hyperparameters for each one of the employed `AdaBoost`, `RandomForest`, `ElasticNet` and `Ridge` regressors. The required hyperparameters are:
 
@@ -20,23 +20,23 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 [sklern-voting]: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.VotingRegressor.html
 
 ### Input Data:
-1. **LST**: A single raster dataset with one or more bands, where each band is a LST array.
-2. **Predictors**: A single raster dataset with one or more bands, where each band is a predictor. Each band of the predictors should be standardized, i.e. centered over zero and with a variance of one.
+1. **LST**: A single raster dataset with one or more bands (each bands is a LST image).
+2. **Predictors**: A single raster dataset with one or more bands (each band is a predictor).
 
-The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster are correctly defined. If any of them is missing then the downscaling fuction will raise an error and stop. 
+The class does **not** require the two raster datasets to have the same SRS and Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST.
 
-### Checks for downscaling the LST data:
+### Checks before downscaling the LST data:
 If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters `SetMissingPxlsThreshold()` and `SetR2Threshold()`, respectively.
 
 ### Output:
-A dictionary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data will be that of the predictors.
+A dictionary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data is that of the predictors.
 
 To save the DLST data as a raster dataset (each DLST array will be a band) use `SaveDLSTasGeotiff(savename)`. The savedir of the output raster is the workdir.
 
 ## Usage
 ```python
 from osgeo import gdal
-from DownscaleSatelliteLST import DownscaledLST
+from DownscaleSatelliteLST import DownscaledLST     # Import the class
 
 # Make an instance of the class
 data = DownscaledLST(
@@ -47,16 +47,14 @@ data = DownscaledLST(
         workdir="./DLST_save_folder",
         )
 
-# The class uses four regressors from scikit-learn and combines them
-# into an ensemble VotingRegressor. Before applying the downscaling,
-# it is mandatory to specify the regression parameters presented below
-# using the following setters:
+# Before applying the downscaling, it is mandatory to specify
+# the following hyperparameters:
 data.SetAdaBoostParams(loss="exponential", n_estimators=70)
 data.SetRandomForestParams(max_depth=9, n_estimators=50, min_samples_split=2, min_samples_leaf=1)
 data.SetElasticNetParams(l1_ratio=0.1, n_alphas=50, cv=5)
 data.SetRidgeRegrParams(alpha=1.0)
 
-# Update the R^2 threshold for discarding a model (the default value is 0.5)
+# Change the R^2 threshold for discarding a model (the default value is 0.5)
 data.SetR2Threshold(0.6)
 
 # Downscale the LST data and apply the residual correction.
@@ -68,11 +66,12 @@ DLST = data.ApplyDownscaling(residual_corr=True)
 # R2-threshold are discarded.
 bands = data.GetDLSTBandIndices(indexing_from_1=False)
 
-# Save in workdir a report with the
-# scores of all the non-discarded models
+# Save a report with the scores of all the non-discarded models
+# The report is saved in workdir
 data.GenerateReport()
 
-# Save in workdir the DLST data as a compressed Geotiff file
+# Export the DLST data as a compressed Geotiff file
+# The geotiff file is saved in workdir 
 data.SaveDLSTasGeotiff(savename="DLST.tif")
 ```
 
@@ -80,8 +79,7 @@ data.SaveDLSTasGeotiff(savename="DLST.tif")
 - The recommended datatype for the LST and the predictors is **float32**.
 - If the LST or the predictors contain any **water bodies** or **clouds**, then these pixels should be equal to the **NoData value**.
 - The class builds a **"global" regression model** for each LST band. Hence, it should be used with data that cover an area of **limited extent**, e.g. a city with its surroundings.
-- The algorithm will also generate DLST data for the cloud-covered areas. Handle them with caution.
-
+- If the predictors are gapless, the algorithm will generate DLST data and for the cloud-covered areas. Handle them with caution.
 
 ## To Do
 - Add a class for preparing the predictors.
@@ -91,6 +89,7 @@ data.SaveDLSTasGeotiff(savename="DLST.tif")
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Reference
 If you use this class please cite:
 
     @phdthesis{Sismanidis2018,
