@@ -69,11 +69,11 @@ DLST = data.ApplyDownscaling(residual_corr=True)
 # R2-threshold are discarded.
 bands = data.GetDLSTBandIndices(indexing_from_1=False)
 
-# Save in the workdir a report with with the
+# Save in workdir a report with the
 # scores of all the non-discarded models
 data.GenerateReport()
 
-# Save in the workdir the DLST data as a compressed Geotiff file
+# Save in workdir the DLST data as a compressed Geotiff file
 data.SaveDLSTasGeotiff(savename="DLST.tif")
 ```
 
