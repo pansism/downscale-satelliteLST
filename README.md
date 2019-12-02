@@ -33,15 +33,6 @@ A dictionary with the Downscaled LST (DLST) data of all the non-discarded models
 
 To save the DLST data as a raster dataset (each DLST array will be a band) use `SaveDLSTasGeotiff(savename)`. The savedir of the output raster is the workdir.
 
-### Things to keep in mind:
-- It is recommended the datatype of the the LST and the predictors data to be **float32**.
-- If the LST or the predictors contain any **water bodies** or **clouds**, then these pixels should be **NoData**.
-- The class builds a **"global" regression model** for each LST band. Hence, it should be used with data that cover an area of **limited extent**, e.g. a city with its surroundings.
-- The algorithm will generate data also for the cloud-covered areas. Handle them with caution.
-
-
-
-
 ## Usage
 ```python
 from osgeo import gdal
@@ -84,6 +75,12 @@ data.GenerateReport()
 # Save in workdir the DLST data as a compressed Geotiff file
 data.SaveDLSTasGeotiff(savename="DLST.tif")
 ```
+
+## Things to keep in mind:
+- It is recommended the datatype of the the LST and the predictors data to be **float32**.
+- If the LST or the predictors contain any **water bodies** or **clouds**, then these pixels should be **NoData**.
+- The class builds a **"global" regression model** for each LST band. Hence, it should be used with data that cover an area of **limited extent**, e.g. a city with its surroundings.
+- The algorithm will generate data also for the cloud-covered areas. Handle them with caution.
 
 
 ## To Do
