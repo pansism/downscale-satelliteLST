@@ -20,7 +20,7 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 [sklern-voting]: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.VotingRegressor.html
 
 ### Input Data:
-1. **LST**: A single raster dataset with one or more bands (each bands is a LST image).
+1. **LST**: A single raster dataset with one or more bands (each band is a LST image).
 2. **Predictors**: A single raster dataset with one or more bands (each band is a predictor).
 
 The class does **not** require the two raster datasets to have the same SRS and Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST.
