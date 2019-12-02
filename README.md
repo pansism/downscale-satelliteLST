@@ -26,10 +26,12 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster to be correctly defined. If any of them is missing then the downscaling fuction will raise an error and stop. 
 
 ### Checks for downscaling the LST data:
-If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters 'SetMissingPxlsThreshold()' and 'SetR2Threshold()', respectively.
+If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters `SetMissingPxlsThreshold()` and `SetR2Threshold()`, respectively.
 
 ### Output:
-A dictinary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data will be that of the predictors.
+A dictionary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data will be that of the predictors.
+
+To save the DLST data as a raster dataset (each DLST array will be a band) use `SaveDLSTasGeotiff(savename)`. The savedir of the output raster is the workdir.
 
 ### Things to keep in mind:
 - It is recommended the datatype of the the LST and the predictors data to be **float32**.
