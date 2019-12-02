@@ -1,5 +1,5 @@
 # downscale-satelliteLST
-A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling.
+A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling. The target resolution is determined by the LST predictors.
 
 ## Description
 This class implements the typical workflow of a statistical downscaling scheme for enhancing the spatial resolution of satellite-derived Land Surface Temperatures (LST). It uses [GDAL](https://gdal.org/python/) to perform the resampling of the raster data and [scikit-learn](https://scikit-learn.org/stable/) for building the regression models data by combining two CART regressors ([ADAboost][sklern-adaboostRegr] & [Random Forest][sklern-RFregr]) and two linear regressors ([ElasticNET][sklern-elastnet] & [Ridge][sklern-rifge]) into an ensemble [VotingRegressor][sklern-voting].
@@ -92,7 +92,7 @@ If you use this class please cite:
         author = {Sismanidis, Panagiotis},
         pages  = {154},
         school = {National Technical University of Athens},
-        title  = {{Applying Computation Methods for Processing Thermal Satellite Images of Urban Areas}},
+        title  = {{Applying Computational Methods for Processing Thermal Satellite Images of Urban Areas}},
         type   = {PhD Dissertation},
         year   = {2018}
     }
