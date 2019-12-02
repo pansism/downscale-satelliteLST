@@ -23,15 +23,21 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 1. **LST**: A single raster dataset with one or more bands, where each band is a LST array.
 2. **Predictors**: A single raster dataset with one or more bands, where each band is a predictor. Each band of the predictors should be standardized, i.e. centered over zero and with a variance of one.
 
-The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster to exist and to be correctly specified. If any of them is missing then the downscaling fuction will raise an error and stop. 
+The class does **not** require the two raster datasets to have the exact same SRS or Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST. It is very **important** however, that the projection and the geoTranformation coefficients of each raster to be correctly defined. If any of them is missing then the downscaling fuction will raise an error and stop. 
 
+### Checks for downscaling the LST data:
+If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters 'SetMissingPxlsThreshold()' and 'SetR2Threshold()', respectively.
+
+### Output:
+A dictinary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data will be that of the predictors.
 
 ### Things to keep in mind:
 - It is recommended the datatype of the the LST and the predictors data to be **float32**.
 - If the LST or the predictors contain any **water bodies** or **clouds**, then these pixels should be **NoData**.
 - The class builds a **"global" regression model** for each LST band. Hence, it should be used with data that cover an area of **limited extent**, e.g. a city with its surroundings.
-- The **spatial resolution** and the **SRS** of the output Downscaled LST (DLST) will be that of the predictors.
 - The algorithm will generate data also for the cloud-covered areas. Handle them with caution.
+
+
 
 
 ## Usage
@@ -64,7 +70,7 @@ data.SetR2Threshold(0.6)
 DLST = data.ApplyDownscaling(residual_corr=True)
 
 # Get a list with LST bands that have been downcaled.
-# LST bands that miss more than 50% of their pixels 
+# LST bands that miss more than 40% of their pixels 
 # and regression models that achieve a R^2 below the
 # R2-threshold are discarded.
 bands = data.GetDLSTBandIndices(indexing_from_1=False)
