@@ -60,7 +60,7 @@ data.SetR2Threshold(0.6)
 # Downscale the LST data and apply the residual correction.
 DLST = data.ApplyDownscaling(residual_corr=True)
 
-# Get a list with LST bands that have been downcaled.
+# Get a list with LST bands that have been downscaled.
 # LST bands that miss more than 40% of their pixels 
 # and regression models that achieve a R^2 below the
 # R2-threshold are discarded.
