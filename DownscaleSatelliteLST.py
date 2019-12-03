@@ -26,13 +26,13 @@ Usage Example:
     R2-threshold:             0.3
     Missing pxls threshold:   40%
     Train/test size split:    0.8/0.2
-    Building the models:      [#########################] 100.00% 
+    Building the models:      [#########################] 100.00%
     Models that passed the checks: 4/7
     Downscaling the corresponding LST bands...
-    Downscaling band 1:       [#########################] 100.00% 
-    Downscaling band 2:       [#########################] 100.00% 
-    Downscaling band 3:       [#########################] 100.00% 
-    Downscaling band 6:       [#########################] 100.00% 
+    Downscaling band 1:       [#########################] 100.00%
+    Downscaling band 2:       [#########################] 100.00%
+    Downscaling band 3:       [#########################] 100.00%
+    Downscaling band 6:       [#########################] 100.00%
     Downscaling completed in: 16.4 sec
     >>> type(DLST)
     dict
@@ -105,7 +105,7 @@ class DownscaledLST:
 
         CAUTION: The class assumes that the input predictors are standarised, i.e.
                  centered over zero and rescaled to have a standard deviation of one.
-        
+
         Arguments:
             LST {gdal.Dataset} -- A single LST raster with one or more bands
             predictors {gdal.Dataset} -- A single predictors raster  with one or more bands
@@ -124,22 +124,22 @@ class DownscaledLST:
 
         if bool(predictors.GetProjection()) == False:
             raise ValueError("The predictors's proj definition is missing.")
-        
+
         if LST.GetGeoTransform() == (0.0, 1.0, 0.0, 0.0, 0.0, 1.0):
             raise ValueError("The LST's GeoTranformation coefficients are missing.")
 
         if predictors.GetGeoTransform() == (0.0, 1.0, 0.0, 0.0, 0.0, 1.0):
-            raise ValueError("The predictors's GeoTranformation coefficients are missing.")         
-        
+            raise ValueError("The predictors's GeoTranformation coefficients are missing.")
+
         self.workdir = workdir
         if not os.path.exists(workdir): os.makedirs(workdir)
 
         self.predictors = predictors
         self.predictors_NDV = predictors_noDataVal
         self.LST_NDV = LST_noDataVal
-          
+
         # Make an instance variable with the predictor's bounding box and SRS
-        self._GetPredictorsBBox()     
+        self._GetPredictorsBBox()
 
         # Clip the LST data to the predictor's BBox
         self.LST = self._WarpRaster(
@@ -177,14 +177,14 @@ class DownscaledLST:
         # The Downscaled LST (DLST) and the model scores.
         self.DLST = {}
         self.model_scores = {}
-        
+
 
     def ApplyDownscaling(self, residual_corr):
         """Enhance the spatial resolution of the LST data using statistical downscaling.
 
         This function starts by upscaling the given predictors to the LST data. Then, it uses
         the upscaled predictors, and for each LST band, it builds an ensemble regression
-        model that describes their relationship. If a LST band misses more pixels than the 
+        model that describes their relationship. If a LST band misses more pixels than the
         predefined threshold, then this band is discarded and no model is built. In addition,
         if a model achieves a R^2 that is lower than the predifed threshold, it is also discarded.
         The default pxl- and R^2-thresholds are 40% and 0.5, respectively. To change them use
@@ -192,20 +192,20 @@ class DownscaledLST:
         all the models, this function applies each ensemble model to the given predictors so as
         to retrieve the Downscaled LST (DLST) data. If the 'residual_corr' flag is set to 'True',
         the DLST residual correction is also applied at this stage.
-        
+
         The spatial resolution and the SRS of the output DLST data is that of the predictors. To use this
         function, it is mandatory to first specify the required regression parameters using the setters:
         'SetAdaBoostParams()', 'SetRandomForestParams()', 'SetElasticNetParams()' and 'SetRidgeRegrParams()'.
-        
+
         The class builds a "global" regression model for each LST band and hence it should be used with data
         that cover an area of limited extent, e.g. a city with its surroundings.
 
         Arguments:
             residual_corr {bool} -- Residual correction flag
-        
+
         Returns:
             dict -- The Downscaled LST (DLST) data
-        """        
+        """
         start = datetime.now()
 
         assert (
@@ -226,12 +226,12 @@ class DownscaledLST:
         assert (
             StrictVersion(sklearn.__version__) >= StrictVersion("0.21.3")
         ), "Sklearn v.0.21.3 or greater is required."
-        
+
         print(f"{'Downscaling started at:':<25} {start.strftime('%d/%m/%Y, %H:%M')}")
         print(f"{'Residual Correction:':<25} {residual_corr}")
         print(f"{'R2-threshold:':<25} {self.R2_threshold}")
         print(f"{'Missing pxls threshold:':<25} {self.pxls_threshold}%")
-        print(f"{'Train/test size split:':<25} {1-self.regr_test_size}/{self.regr_test_size}")       
+        print(f"{'Train/test size split:':<25} {1-self.regr_test_size}/{self.regr_test_size}")
 
         LST = self._GetMskdArray(self.LST, self.LST_NDV)
         predictors = self._GetMskdArray(self.predictors, self.predictors_NDV)
@@ -243,15 +243,15 @@ class DownscaledLST:
         models = {}
         for i, LST_band in enumerate(LST):
 
-            combined_nanmask = np.logical_or(LST.mask, upscaled_predictors.mask)
+            combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
             y = LST_band[combined_nanmask.any(axis=0)==False]
-            X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T  
+            X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T
 
             if len(y) / pxl_total >= self.pxls_threshold / 100:
                 model, metrics = self._BuildRegrModel(y, X)
                 R2 = metrics[0]
 
-                if R2 >= self.R2_threshold:              
+                if R2 >= self.R2_threshold:
                     models[i] = model
                     self.model_scores[i] = metrics
 
@@ -259,21 +259,21 @@ class DownscaledLST:
 
         if bool(models) == False:
             raise SystemExit("All the models failed the R2 and pixel-% tests.")
-            
+
         print(f"{'Models that passed the checks:':<25} {len(models)}/{self.LST.RasterCount}")
         print(f"Downscaling the corresponding LST bands...")
 
         X = predictors[:, predictors.mask.any(axis=0)==False]
         X_idx = np.argwhere(predictors.mask.any(axis=0) == False)
-        
-        # If X is larger than MAX_ELEMENTS, split it into chuncks to 
+
+        # If X is larger than MAX_ELEMENTS, split it into chuncks to
         # avoid any memory overflow when appling predict().
         split_flag = False
         MAX_ELEMENTS = 250000
         if X.shape[1] > MAX_ELEMENTS:
             splits = int(round(X.shape[1] / MAX_ELEMENTS))
-            X = np.array_split(X.T, splits, axis=0) 
-            X_idx = np.array_split(X_idx.T, splits, axis=1) 
+            X = np.array_split(X.T, splits, axis=0)
+            X_idx = np.array_split(X_idx.T, splits, axis=1)
             split_flag = True
 
         for i, (band, model) in enumerate(models.items()):
@@ -282,7 +282,7 @@ class DownscaledLST:
                     shape=(self.predictors.RasterYSize, self.predictors.RasterXSize),
                     dtype="float32"
             )
-        
+
             if split_flag == True:
                 with concurrent.futures.ProcessPoolExecutor() as executor:
                     for split, DLST in enumerate(executor.map(model.predict, X)):
@@ -292,14 +292,14 @@ class DownscaledLST:
                 DLST = model.predict(X.T)
                 DLST_array[tuple(X_idx.T)] = DLST
                 self._progressbar(1,  1, f"Downscaling band {band}:")
-                
+
             if residual_corr == True:
                 residuals = self._CalcResiduals(DLST_array, LST[band])
                 DLST_array += residuals
 
             DLST_array[DLST_array == 0] = self.LST_NDV
             self.DLST[band] = DLST_array
-        
+
         elapsed_time = (datetime.now() - start).total_seconds()
         print(f"{'Downscaling completed in:':<25} {elapsed_time:.01f} sec")
 
@@ -309,7 +309,7 @@ class DownscaledLST:
     def GetDLSTBandIndices(self, indexing_from_1):
         """Get a list with the LST bands that have been downscaled."""
         assert len(self.DLST) > 0, "Apply the Downscaling first."
-        
+
         if indexing_from_1 == True:
             return [idx + 1 for idx in self.DLST.keys()]
         else:
@@ -353,7 +353,7 @@ class DownscaledLST:
         """Save a report with the scores of all the non-discarded models."""
 
         assert len(self.DLST) > 0, "Apply the Downscaling first."
-        
+
         header = "Performance metrics for all the non-discarded models."
         table_labels = {
             "Band": "The downscaled LST band",
@@ -364,7 +364,7 @@ class DownscaledLST:
             "MedAE": "Median Absolute Error",
             "MSE": "Mean Squared Error",
         }
-        
+
         print(f"{'Generating report...':<25}", end=" ")
 
         with open(os.path.join(self.workdir, "Model_Scores.txt"), "w") as report:
@@ -386,7 +386,7 @@ class DownscaledLST:
                 score_row = "".join(f"{score:<10.02f}" for score in self.model_scores[band])
                 print(f"{band:<10}{score_row}", file=report)
             print("=" * 66, file=report)
-            
+
         print("DONE")
 
 
@@ -395,7 +395,7 @@ class DownscaledLST:
         array = raster.ReadAsArray().astype(np.float32)
         array[array == ndv] = np.nan
         array = ma.masked_invalid(array)
-        
+
         if raster.RasterCount == 1:
             array = np.expand_dims(array, axis=0)
 
@@ -412,13 +412,13 @@ class DownscaledLST:
 
         proj = self.predictors.GetProjection()
         SRS = osr.SpatialReference(wkt=proj)
-        
+
         self.BBox = {"coords":(MinX, MinY, MaxX, MaxY), "SRS": SRS}
 
 
     def _WarpRaster(self, dst, dst_ndv, src, src_ndv, resampling):
         """For the the predictors' BBox, warp the src raster to match the dst raster.
-        
+
         For the fine resolution predictor's bounding box, use GDAL's warp function
         so as to match the source raster (src) to the target raster (dst).
         The warped raster will be saved as a GDAl's virtual raster dataset (VRT) in a
@@ -457,13 +457,13 @@ class DownscaledLST:
         )
         return gdal.Warp(savepath, src, options=warp_options)
 
-    
+
     def _BuildRegrModel(self, y, X):
         """Train an ensemble regression model and assess its performance.
-        
+
         Start by splitting the y and X to train and test samples. Next, make an ensemble
         voting regressor by cominging an AdaBoost, a RandomForest, an ElasticNet and a
-        Ridge regressor and fit it to the train sample. Finally, calculate its performance 
+        Ridge regressor and fit it to the train sample. Finally, calculate its performance
         using the test sample and return both the model and the calculated metrics.
 
         Arguments:
@@ -535,7 +535,7 @@ class DownscaledLST:
         corresponding LST-DLST residuals. Finally, it supersamples the derived residuals
         to the fine resolution grid of the predictors using using cubic spline interpolation,
         so as to avoid any boxing effects. To change the utilised resampling method use the
-        'SetSupersamplingMthd()' method before running the 'ApplyDownscaling()' method. 
+        'SetSupersamplingMthd()' method before running the 'ApplyDownscaling()' method.
 
         Arguments:
             DLST {numpy.ndarray} -- The uncorrected DLST data array
@@ -650,7 +650,7 @@ class DownscaledLST:
         """Set the R2 theshold below which a regression model will be discarded."""
         if threshold > 1 or threshold < 0:
             raise ValueError("R2 threshold should range between 0 and 1")
-            
+
         self.R2_threshold = threshold
 
 
@@ -658,14 +658,14 @@ class DownscaledLST:
         """Set the percentage of missing pixels below which a LST scene will be discarded."""
         if percentage > 100 or percentage < 0:
             raise ValueError("The missing pixels threshold should range between 0% and 100%")
-            
+
         self.pxls_threshold = percentage
 
 
     def SetSupersamplingMthd(self, method):
         """Set the residual correction's resampling method."""
         methods = ["average", "nearest", "cubspline"]
-        
+
         if method in methods:
             self.supersampling_method = method
         else:
