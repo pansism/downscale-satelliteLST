@@ -78,6 +78,7 @@ data.SaveDLSTasGeotiff(savename="DLST.tif")
 ## Things to keep in mind:
 - The recommended datatype for the input rasters is **float**.
 - If the LST or the predictors contain any **water bodies** or **clouds**, then these pixels should be **NoData**.
+- All the NoData pixels should have the **same** NoData value.
 - The class builds a **"global" regression model** for each LST band. Hence, it should be used with data that cover an area of **limited extent**, e.g. a city with its surroundings.
 - If the predictors are gapless, the algorithm will generate DLST data and for the cloud-covered areas. Handle them with caution.
 
