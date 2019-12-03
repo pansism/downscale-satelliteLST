@@ -243,7 +243,7 @@ class DownscaledLST:
         models = {}
         for i, LST_band in enumerate(LST):
 
-            combined_nanmask = np.logical_or(LST.mask, upscaled_predictors.mask)
+            combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
             y = LST_band[combined_nanmask.any(axis=0)==False]
             X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T  
 
