@@ -31,7 +31,7 @@ If a LST band misses more than 40% of its pixels, then this band is discarded an
 ### Output:
 A dictionary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data is that of the predictors.
 
-To save the DLST data as a raster dataset (each DLST array will be a band) use `SaveDLSTasGeotiff(savename)`. The savedir of the output raster is the workdir.
+To save the DLST data as a raster dataset use `SaveDLSTasGeotiff(savename)`. The savedir of the output raster is the workdir.
 
 ## Usage
 ```python
