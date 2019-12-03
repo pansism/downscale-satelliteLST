@@ -23,10 +23,10 @@ Before using the class, the user **must**: (a) prepare and standarize the predic
 1. **LST**: A single raster dataset with one or more bands (each band is a LST image).
 2. **Predictors**: A single raster dataset with one or more bands (each band is a predictor).
 
-The class does **not** require the two raster datasets to have the same SRS and Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST.
+The class does **not** require the two raster datasets to have the same SRS and Bounding  Box. The only requirement is the predictors to be **within** the bounds of the LST data.
 
 ### Checks before downscaling the LST data:
-If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the the setters `SetMissingPxlsThreshold()` and `SetR2Threshold()`, respectively.
+If a LST band misses more than 40% of its pixels, then this band is discarded and no model is built. In addition, if a model achieves a R^2 that is lower than 0.5, it is also discarded. These two thresholds can be changed using the setters `SetMissingPxlsThreshold()` and `SetR2Threshold()`, respectively.
 
 ### Output:
 A dictionary with the Downscaled LST (DLST) data of all the non-discarded models. The **spatial resolution** and the **SRS** of the output data is that of the predictors.
