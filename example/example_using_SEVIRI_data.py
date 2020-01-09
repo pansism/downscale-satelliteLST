@@ -21,7 +21,7 @@ def main():
             workdir="./Results",
         )
 
-    # Mnaually set the regression hyperparameters
+    # Manually set the regression hyperparameters
     data.SetAdaBoostParams(loss="exponential", n_estimators=70)
     data.SetRandomForestParams(max_depth=9, n_estimators=50, min_samples_split=2, min_samples_leaf=1)
     data.SetElasticNetParams(l1_ratio=0.1, n_alphas=50, cv=5)
