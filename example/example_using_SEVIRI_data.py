@@ -34,7 +34,7 @@ def main():
     # Apply the Downscaling
     data.ApplyDownscaling(residual_corr=True)
 
-    # Save the dowscaled data
+    # Save the dowscaled data as a geotiff file
     data.SaveDLSTasGeotiff(savename="downscaled_LST.tif")
     
     # Save the regression metrics in a txt file
