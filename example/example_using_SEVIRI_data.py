@@ -36,9 +36,11 @@ def main():
 
     # Save the dowscaled data
     data.SaveDLSTasGeotiff(savename="downscaled_LST.tif")
+    
+    # Save the regression metrics in a txt file
     data.GenerateReport()
 
-    # Get the index of the non-discarded downscaled data
+    # Get the indices of the non-discarded downscaled data
     print("LST bands that have been downscaled:")
     print(data.GetDLSTBandIndices(indexing_from_1=False))
 
