@@ -49,7 +49,7 @@ Author:          Panagiotis Sismanidis
 Address:         National Observatory of Athens, Greece
 e-mail:          panosis@noa.gr
 Release Date:    28 November 2019
-Last Update:     28 November 2019
+Last Update:     06 February 2020
 
 If you use this class please cite:
 
@@ -84,6 +84,7 @@ import sklearn
 from sklearn.linear_model import ElasticNetCV, Ridge
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor, VotingRegressor
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
 from datetime import datetime
 from osgeo import gdal, gdal_array, gdalconst, osr
@@ -245,10 +246,14 @@ class DownscaledLST:
 
             combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
             y = LST_band[combined_nanmask.any(axis=0)==False]
-            X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T
+            X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T   # Coarse resolution predictors
+
+            # Center the predictors to 0 by removing the mean and scale to unit variance
+            scaler = StandardScaler().fit(X)
+            X_standardized = scaler.transform(X)
 
             if len(y) / pxl_total >= self.pxls_threshold / 100:
-                model, metrics = self._BuildRegrModel(y, X)
+                model, metrics = self._BuildRegrModel(y, X_standardized)
                 R2 = metrics[0]
 
                 if R2 >= self.R2_threshold:
@@ -263,16 +268,17 @@ class DownscaledLST:
         print(f"{'Models that passed the checks:':<25} {len(models)}/{self.LST.RasterCount}")
         print(f"Downscaling the corresponding LST bands...")
 
-        X = predictors[:, predictors.mask.any(axis=0)==False]
+        X = predictors[:, predictors.mask.any(axis=0)==False].T  # Fire resolution predictors
+        X_standardized = scaler.transform(X).T
         X_idx = np.argwhere(predictors.mask.any(axis=0) == False)
 
-        # If X is larger than MAX_ELEMENTS, split it into chuncks to
-        # avoid any memory overflow when appling predict().
+        # If X_standardized is larger than MAX_ELEMENTS, split it into chuncks to
+        # avoid any memory overflow when applying predict().
         split_flag = False
         MAX_ELEMENTS = 250000
-        if X.shape[1] > MAX_ELEMENTS:
-            splits = int(round(X.shape[1] / MAX_ELEMENTS))
-            X = np.array_split(X.T, splits, axis=0)
+        if X_standardized.shape[1] > MAX_ELEMENTS:
+            splits = int(round(X_standardized.shape[1] / MAX_ELEMENTS))
+            X_standardized = np.array_split(X_standardized.T, splits, axis=0)
             X_idx = np.array_split(X_idx.T, splits, axis=1)
             split_flag = True
 
@@ -285,11 +291,11 @@ class DownscaledLST:
 
             if split_flag == True:
                 with concurrent.futures.ProcessPoolExecutor() as executor:
-                    for split, DLST in enumerate(executor.map(model.predict, X)):
+                    for split, DLST in enumerate(executor.map(model.predict, X_standardized)):
                         self._progressbar(splits, split + 1, f"Downscaling LST band {band}:")
                         DLST_array[tuple(X_idx[split])] = DLST
             else:
-                DLST = model.predict(X.T)
+                DLST = model.predict(X_standardized.T)
                 DLST_array[tuple(X_idx.T)] = DLST
                 self._progressbar(1,  1, f"Downscaling band {band}:")
 
