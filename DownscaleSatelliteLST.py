@@ -104,9 +104,6 @@ class DownscaledLST:
         does not require the two raster datasets to have the exact same SRS or Bounding
         Box. The only requirement is the predictors to be within the bounds of the LST.
 
-        CAUTION: The class assumes that the input predictors are standarised, i.e.
-                 centered over zero and rescaled to have a standard deviation of one.
-
         Arguments:
             LST {gdal.Dataset} -- A single LST raster with one or more bands
             predictors {gdal.Dataset} -- A single predictors raster  with one or more bands
