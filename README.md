@@ -1,5 +1,6 @@
-# downscale-satelliteLST
 [![DOI](https://zenodo.org/badge/224420462.svg)](https://zenodo.org/badge/latestdoi/224420462)
+
+# downscale-satelliteLST
 A python class for enhancing the spatial resolution of Land Surface Temperature (LST) raster data using statistical downscaling.
 ![](LST_vs_DLST_compr.gif)
 
