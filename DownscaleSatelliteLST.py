@@ -42,11 +42,6 @@ Usage Example:
     Downscaling LST band 0:   [#########################] 100.00% 
 
     Downscaling completed in: 127.1 sec
-    Generating report...      Done
-    [1]
-    Writing to GeoTiff...     Done
-
-
     >>> type(DLST)
     dict
     >>> data.GetDLSTBandIndices(indexing_from_1=True)
