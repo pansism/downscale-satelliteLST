@@ -88,7 +88,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import numpy as np
 import numpy.ma as ma
-import concurrent.futures
 import os
 import sys
 import sklearn
@@ -210,8 +209,8 @@ class DownscaledLST:
             isinstance(residual_corr, bool) == True
         ), "The 'residual_corr' argument should be True or False."
         assert StrictVersion(sklearn.__version__) >= StrictVersion(
-            "0.22.2"
-        ), "Sklearn v.0.22.2 or greater is required."
+            "0.22.0"
+        ), "Sklearn v.0.22.0 or greater is required."
 
         print(f"\n{'Downscaling started at:':<25} {start.strftime('%d/%m/%Y, %H:%M')}")
         print("\nSETTINGS")
