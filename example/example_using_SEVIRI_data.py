@@ -21,12 +21,6 @@ def main():
             workdir="./Results",
         )
 
-    # Manually set the regression hyperparameters
-    data.SetAdaBoostParams(loss="exponential", n_estimators=70)
-    data.SetRandomForestParams(max_depth=9, n_estimators=50, min_samples_split=2, min_samples_leaf=1)
-    data.SetElasticNetParams(l1_ratio=0.1, n_alphas=50, cv=5)
-    data.SetRidgeRegrParams(alpha=1.0)
-
     # Set the R2 threshold for discarding
     # poorly-performing regression models.
     data.SetR2Threshold(0.5)

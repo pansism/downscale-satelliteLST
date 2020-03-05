@@ -15,29 +15,42 @@ Usage Example:
         predictors_noDataVal=-1000,
         workdir="./DLST_save_folder",
         )
-    >>> data.SetAdaBoostParams(loss="exponential", n_estimators=70)
-    >>> data.SetRandomForestParams(max_depth=9, n_estimators=50, min_samples_split=2, min_samples_leaf=1)
-    >>> data.SetElasticNetParams(l1_ratio=0.1, n_alphas=50, cv=5)
-    >>> data.SetRidgeRegrParams(alpha=1.0)
-    >>> data.SetR2Threshold(0.6)
+    >>> data.SetNumberOfJobs(2)
     >>> DLST = data.ApplyDownscaling(residual_corr=True)
-    Downscaling started at:   04/10/2019, 18:10
-    Residual Correction:      False
-    R2-threshold:             0.3
-    Missing pxls threshold:   40%
-    Train/test size split:    0.8/0.2
-    Building the models:      [#########################] 100.00%
-    Models that passed the checks: 4/7
+        
+    Downscaling started at:   05/03/2020, 12:00
+
+    SETTINGS
+    ========
+    Residual Correction:           True
+    R2-threshold:                  0.1
+    Missing pxls threshold:        40.0%
+    Train/test size split:         0.7/0.3
+    Parallel jobs:                 2
+    Hyperarameter tuning trials:   60
+    
+    Building the regression models.
+    Processing band 0:
+        Tuning the random forest hyperparameters...   Done [CV R2 score = 0.63]
+        Tuning the ridge hyperparameters...           Done [CV R2 score = 0.48]
+        Tuning the svr hyperparameters...             Done [CV R2 score = 0.59]
+        The R2 score of the ensemble model is: 0.64   PASS
+
+    Models that passed the checks: 1/1
+
     Downscaling the corresponding LST bands...
-    Downscaling band 1:       [#########################] 100.00%
-    Downscaling band 2:       [#########################] 100.00%
-    Downscaling band 3:       [#########################] 100.00%
-    Downscaling band 6:       [#########################] 100.00%
-    Downscaling completed in: 16.4 sec
+    Downscaling LST band 0:   [#########################] 100.00% 
+
+    Downscaling completed in: 127.1 sec
+    Generating report...      Done
+    [1]
+    Writing to GeoTiff...     Done
+
+
     >>> type(DLST)
     dict
-    >>> data.GetDLSTBandIndices(indexing_from_1=False)
-    [1, 2, 3, 6]
+    >>> data.GetDLSTBandIndices(indexing_from_1=True)
+    [1]
     >>> data.GenerateReport()
     Generating report...      DONE
     >>> data.SaveDLSTasGeotiff(savename="DLST.tif")
@@ -45,11 +58,13 @@ Usage Example:
 
 *********************************************************************************************************
 
+Version:         1.1.0
+Release Date:    28 November 2019
+Last Update:     5 March 2020
+
 Author:          Panagiotis Sismanidis
 Address:         National Observatory of Athens, Greece
 e-mail:          panosis@noa.gr
-Release Date:    28 November 2019
-Last Update:     06 February 2020
 
 If you use this class please cite:
 
@@ -66,7 +81,7 @@ Enjoy!
 
 This software is provided under the MIT license.
 
-Copyright 2019. Panagiotis Sismanidis
+Copyright 2019-2020. Panagiotis Sismanidis
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
@@ -79,20 +94,23 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import numpy as np
 import numpy.ma as ma
 import concurrent.futures
-import os, sys
+import os
+import sys
 import sklearn
-from sklearn.linear_model import ElasticNetCV, Ridge
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor, VotingRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+from sklearn.linear_model import Ridge, RidgeCV, ElasticNetCV
+from sklearn.ensemble import RandomForestRegressor, StackingRegressor
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.preprocessing import QuantileTransformer
+from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn import metrics
 from datetime import datetime
 from osgeo import gdal, gdal_array, gdalconst, osr
+from scipy import stats
 from distutils.version import StrictVersion
 
 
 class DownscaledLST:
-
     def __init__(self, LST, predictors, LST_noDataVal, predictors_noDataVal, workdir):
         """A class for enhancing the spatial resolution of satellite LST.
 
@@ -111,26 +129,13 @@ class DownscaledLST:
             predictors_noDataVal {ind or float} --  The noData value of the predictors
             workdir {str} -- The working directory
         """
-        if isinstance(LST, gdal.Dataset) == False:
-            raise TypeError("The LST must be a gdal.Dataset with one or more bands.")
-
-        if isinstance(predictors, gdal.Dataset) == False:
-            raise TypeError("The predictors must be a gdal.Dataset with one or more bands.")
-
-        if bool(LST.GetProjection()) == False:
-            raise ValueError("The LST's proj definition is missing.")
-
-        if bool(predictors.GetProjection()) == False:
-            raise ValueError("The predictors's proj definition is missing.")
-
-        if LST.GetGeoTransform() == (0.0, 1.0, 0.0, 0.0, 0.0, 1.0):
-            raise ValueError("The LST's GeoTranformation coefficients are missing.")
-
-        if predictors.GetGeoTransform() == (0.0, 1.0, 0.0, 0.0, 0.0, 1.0):
-            raise ValueError("The predictors's GeoTranformation coefficients are missing.")
+        
+        for input_raster in [LST, predictors]:
+            self._validate_input(input_raster)
 
         self.workdir = workdir
-        if not os.path.exists(workdir): os.makedirs(workdir)
+        if not os.path.exists(workdir):
+            os.makedirs(workdir)
 
         self.predictors = predictors
         self.predictors_NDV = predictors_noDataVal
@@ -157,24 +162,24 @@ class DownscaledLST:
             resampling="average",
         )
 
-        # Regression parameters
-        self.params_ADAboost = {}
-        self.params_RF = {}
-        self.params_elastNet = {}
-        self.params_ridge = {}
-        self.regr_test_size = 0.2
+        # The settings for _BuildRegrModel() 
+        self.regr_test_size = 0.3
         self.SEED = 123
+        self.N_JOBS = 1
+        self.N_RANDOM_SEARCHES = 60
 
-        # Thresholds for discarding regression models
-        self.pxls_threshold = 40
+        # Thresholds for discarding regression models / LST bands
+        self.cloud_cover_threshold = 0.4
         self.R2_threshold = 0.5
 
         # The resampling method used in the residual correction
         self.supersampling_method = "cubspline"
 
-        # The Downscaled LST (DLST) and the model scores.
+        # The output Downscaled LST (DLST) and the model scores.
         self.DLST = {}
         self.model_scores = {}
+
+        self.__version__ = "1.1.0"
 
 
     def ApplyDownscaling(self, residual_corr):
@@ -207,94 +212,96 @@ class DownscaledLST:
         start = datetime.now()
 
         assert (
-            bool(self.params_ADAboost) == True
-        ), "The ADAboost hyperparameters are missing. Use 'SetAdaBoostParams()' to set them."
-        assert (
-            bool(self.params_RF) == True
-        ), "The RF hyperparameters are missing. Uset 'SetRandomForestParams()' to set them."
-        assert (
-            bool(self.params_elastNet) == True
-        ), "The ElasticNET hyperparameters are missing. Use 'SetElasticNetParams()' to set them."
-        assert (
-            bool(self.params_ridge) == True
-        ), "The RidgeRegr hyperparameters are missing. Use 'SetRidgeRegrParams()' to set them."
-        assert (
             isinstance(residual_corr, bool) == True
         ), "The 'residual_corr' argument should be True or False."
-        assert (
-            StrictVersion(sklearn.__version__) >= StrictVersion("0.21.3")
+        assert StrictVersion(sklearn.__version__) >= StrictVersion(
+            "0.21.3"
         ), "Sklearn v.0.21.3 or greater is required."
 
-        print(f"{'Downscaling started at:':<25} {start.strftime('%d/%m/%Y, %H:%M')}")
-        print(f"{'Residual Correction:':<25} {residual_corr}")
-        print(f"{'R2-threshold:':<25} {self.R2_threshold}")
-        print(f"{'Missing pxls threshold:':<25} {self.pxls_threshold}%")
-        print(f"{'Train/test size split:':<25} {1-self.regr_test_size}/{self.regr_test_size}")
+        print(f"\n{'Downscaling started at:':<25} {start.strftime('%d/%m/%Y, %H:%M')}")
+        print("\nSETTINGS")
+        print("="*8)
+        print(f"{'Residual Correction:':<30} {residual_corr}")
+        print(f"{'R2-threshold:':<30} {self.R2_threshold}")
+        print(f"{'Missing pxls threshold:':<30} {self.cloud_cover_threshold*100}%")
+        print(f"{'Train/test size split:':<30} {1-self.regr_test_size}/{self.regr_test_size}")
+        print(f"{'Parallel jobs:':<30} {self.N_JOBS}")
+        print(f"{'Hyperarameter tuning trials:':<30} {self.N_RANDOM_SEARCHES}")
 
         LST = self._GetMskdArray(self.LST, self.LST_NDV)
         predictors = self._GetMskdArray(self.predictors, self.predictors_NDV)
-        upscaled_predictors = self._GetMskdArray(self.upscaled_predictors, self.predictors_NDV)
+        upscaled_predictors = self._GetMskdArray(
+            self.upscaled_predictors, self.predictors_NDV
+        )
 
         # Use the upsaled predictors to estimate how many the non-nan LST pxls are.
-        pxl_total = np.count_nonzero(upscaled_predictors.mask.any(axis=0)==False)
+        pxl_total = np.count_nonzero(upscaled_predictors.mask.any(axis=0) == False)
 
+        print(f"\nBuilding the regression models.")
         models = {}
         for i, LST_band in enumerate(LST):
-
             combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
-            y = LST_band[combined_nanmask.any(axis=0)==False]
-            X = upscaled_predictors[:, combined_nanmask.any(axis=0)==False].T   # Coarse resolution predictors
+            
+            y = LST_band[combined_nanmask.any(axis=0) == False]
+            X = upscaled_predictors[:, combined_nanmask.any(axis=0) == False].T  # Coarse resolution predictors
 
-            # Center the predictors to 0 by removing the mean and scale to unit variance
-            scaler = StandardScaler().fit(X)
-            X_standardized = scaler.transform(X)
+            clear_sky_pxl_perc = len(y) / pxl_total  # this is a rough estimate
 
-            if len(y) / pxl_total >= self.pxls_threshold / 100:
-                model, metrics = self._BuildRegrModel(y, X_standardized)
+            if clear_sky_pxl_perc >= self.cloud_cover_threshold:
+                print(f"  Processing band {i}:")
+                normal_transformer = QuantileTransformer(len(y)//2, "normal", random_state=self.SEED).fit(X)
+                model, metrics = self._BuildRegrModel(y, normal_transformer.transform(X))
                 R2 = metrics[0]
+                print(f"{f'    The R2 score of the ensemble model is: {R2:0.2f}':<50}", end="")
 
                 if R2 >= self.R2_threshold:
                     models[i] = model
                     self.model_scores[i] = metrics
-
-            self._progressbar(self.LST.RasterCount, i + 1, "Building the models:")
+                    print("PASS")
+                else:
+                    print("FAIL")
+            else:
+                print(f"    Band {i} failed the missing pixels test - Band DISCARDED.")
 
         if bool(models) == False:
             raise SystemExit("All the models failed the R2 and pixel-% tests.")
 
-        print(f"{'Models that passed the checks:':<25} {len(models)}/{self.LST.RasterCount}")
-        print(f"Downscaling the corresponding LST bands...")
+        print(f"\n{'Models that passed the checks:':<25} {len(models)}/{self.LST.RasterCount}")
+        print(f"\nDownscaling the corresponding LST bands...")
 
-        X = predictors[:, predictors.mask.any(axis=0)==False].T  # Fire resolution predictors
-        X_standardized = scaler.transform(X).T
+        X = predictors[:, predictors.mask.any(axis=0) == False].T  # Fine resolution predictors
         X_idx = np.argwhere(predictors.mask.any(axis=0) == False)
 
-        # If X_standardized is larger than MAX_ELEMENTS, split it into chuncks to
+        X_normal = normal_transformer.transform(X).T
+
+        # If X_normal is larger than MAX_ELEMENTS, split it into chuncks to
         # avoid any memory overflow when applying predict().
-        split_flag = False
+        split_X_into_chuncks = False
         MAX_ELEMENTS = 250000
-        if X_standardized.shape[1] > MAX_ELEMENTS:
-            splits = int(round(X_standardized.shape[1] / MAX_ELEMENTS))
-            X_standardized = np.array_split(X_standardized.T, splits, axis=0)
-            X_idx = np.array_split(X_idx.T, splits, axis=1)
-            split_flag = True
+        if X_normal.shape[1] > MAX_ELEMENTS:
+            splits = X_normal.shape[1] // MAX_ELEMENTS
+            if splits > 1:
+                X_normal = np.array_split(X_normal.T, splits, axis=0)
+                X_idx = np.array_split(X_idx.T, splits, axis=1)
+                split_X_into_chuncks = True
 
         for i, (band, model) in enumerate(models.items()):
 
             DLST_array = np.zeros(
-                    shape=(self.predictors.RasterYSize, self.predictors.RasterXSize),
-                    dtype="float32"
+                shape=(self.predictors.RasterYSize, self.predictors.RasterXSize),
+                dtype="float32",
             )
 
-            if split_flag == True:
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    for split, DLST in enumerate(executor.map(model.predict, X_standardized)):
-                        self._progressbar(splits, split + 1, f"Downscaling LST band {band}:")
-                        DLST_array[tuple(X_idx[split])] = DLST
+            if split_X_into_chuncks == True:
+                for split, X_subst in enumerate(X_normal):
+                    self._progressbar(splits-1, split, f"Downscaling LST band {band}:")
+                    DLST = model.predict(X_subst)
+                    DLST_array[tuple(X_idx[split])] = DLST
+
             else:
-                DLST = model.predict(X_standardized.T)
+                DLST = model.predict(X_normal.T)
                 DLST_array[tuple(X_idx.T)] = DLST
-                self._progressbar(1,  1, f"Downscaling band {band}:")
+                self._progressbar(1, 1, f"Downscaling LST band {band}:")
 
             if residual_corr == True:
                 residuals = self._CalcResiduals(DLST_array, LST[band])
@@ -304,7 +311,7 @@ class DownscaledLST:
             self.DLST[band] = DLST_array
 
         elapsed_time = (datetime.now() - start).total_seconds()
-        print(f"{'Downscaling completed in:':<25} {elapsed_time:.01f} sec")
+        print(f"\n{'Downscaling completed in:':<25} {elapsed_time:.01f} sec")
 
         return self.DLST
 
@@ -329,13 +336,13 @@ class DownscaledLST:
 
         driver = gdal.GetDriverByName("GTiff")
         gtiff = driver.Create(
-                os.path.join(self.workdir, savename),
-                xsize=self.predictors.RasterXSize,
-                ysize=self.predictors.RasterYSize,
-                bands=len(self.DLST),
-                eType=gdal.GDT_Float32,
-                options=["COMPRESS=DEFLATE", "BIGTIFF=IF_NEEDED"],
-            )
+            os.path.join(self.workdir, savename),
+            xsize=self.predictors.RasterXSize,
+            ysize=self.predictors.RasterYSize,
+            bands=len(self.DLST),
+            eType=gdal.GDT_Float32,
+            options=["COMPRESS=DEFLATE", "BIGTIFF=IF_NEEDED"],
+        )
         gtiff.SetGeoTransform(self.predictors.GetGeoTransform())
         gtiff.SetProjection(self.predictors.GetProjection())
 
@@ -349,7 +356,7 @@ class DownscaledLST:
             raise ValueError("Failed to write DLST data to GeoTiff.")
 
         gtiff.FlushCache()
-        print("DONE")
+        print("Done")
 
 
     def GenerateReport(self):
@@ -381,16 +388,20 @@ class DownscaledLST:
             print("", file=report)
             print(f"{header:^66}", file=report)
             print("=" * 66, file=report)
-            print(f"".join(f"{label:<10}" for label in table_labels.keys()), file=report)
+            print(
+                f"".join(f"{label:<10}" for label in table_labels.keys()), file=report
+            )
             print("=" * 66, file=report)
 
             # Fill the table
             for band in self.model_scores.keys():
-                score_row = "".join(f"{score:<10.02f}" for score in self.model_scores[band])
+                score_row = "".join(
+                    f"{score:<10.02f}" for score in self.model_scores[band]
+                )
                 print(f"{band:<10}{score_row}", file=report)
             print("=" * 66, file=report)
 
-        print("DONE")
+        print("Done")
 
 
     def _GetMskdArray(self, raster, ndv):
@@ -416,7 +427,7 @@ class DownscaledLST:
         proj = self.predictors.GetProjection()
         SRS = osr.SpatialReference(wkt=proj)
 
-        self.BBox = {"coords":(MinX, MinY, MaxX, MaxY), "SRS": SRS}
+        self.BBox = {"coords": (MinX, MinY, MaxX, MaxY), "SRS": SRS}
 
 
     def _WarpRaster(self, dst, dst_ndv, src, src_ndv, resampling):
@@ -438,7 +449,8 @@ class DownscaledLST:
             gdal.Dataset -- The warped data as a virtual raster (VRT)
         """
         vrt_savedir = os.path.join(self.workdir, "Intermediate VRTs")
-        if not os.path.exists(vrt_savedir): os.makedirs(vrt_savedir)
+        if not os.path.exists(vrt_savedir):
+            os.makedirs(vrt_savedir)
 
         src_fname = os.path.basename(src.GetDescription())
         vrt_fname = os.path.splitext(src_fname)[0] + "_WARPED_" + resampling + ".vrt"
@@ -464,59 +476,85 @@ class DownscaledLST:
     def _BuildRegrModel(self, y, X):
         """Train an ensemble regression model and assess its performance.
 
-        Start by splitting the y and X to train and test samples. Next, make an ensemble
-        voting regressor by cominging an AdaBoost, a RandomForest, an ElasticNet and a
-        Ridge regressor and fit it to the train sample. Finally, calculate its performance
-        using the test sample and return both the model and the calculated metrics.
+        Start by splitting the y and X to train and test samples. Then create three regressors,
+        namely a Random Forest, a Ridge and a SVM regressor and tune their hyperparameters using
+        random search with cross validation. After updating their hyperparamters stack the three
+        regressors using an ElasticNET linear regression model and fit the ensemble model to the 
+        train sample. Finally, calculate its performance using the test sample and return
+        both the ensemble model and the calculated metrics.
 
         Arguments:
             y {numpy.ndarray} -- The response variable (i.e. the LST data)
             X {numpy.ndarray} -- The explanatory variables (i.e. the LST predictors)
 
         Returns:
-            sklearn.ensemble.voting.VotingRegressor -- The ensemble regression model
+            sklearn.ensemble._stacking.StackingRegressor -- The ensemble regression model
             tuple -- A tuple with the regression performance metrics
         """
+
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=self.regr_test_size, random_state=self.SEED
         )
 
-        reg1 = AdaBoostRegressor(
-            loss=self.params_ADAboost["loss"],
-            n_estimators=self.params_ADAboost["n_estimators"],
-            random_state=self.SEED,
-        )
-        reg2 = RandomForestRegressor(
-            max_depth=self.params_RF["max_depth"],
-            n_estimators=self.params_RF["n_estimators"],
-            min_samples_split=self.params_RF["min_samples_split"],
-            min_samples_leaf=self.params_RF["min_samples_leaf"],
-            random_state=self.SEED,
-        )
-        reg3 = ElasticNetCV(
-            l1_ratio=self.params_elastNet["l1_ratio"],
-            n_alphas=self.params_elastNet["n_alphas"],
-            cv=self.params_elastNet["cv"],
-            random_state=self.SEED,
-        )
-        reg4 = Ridge(
-                alpha=self.params_ridge["alpha"],
-                random_state=self.SEED
-        )
-        ereg = VotingRegressor(
-            estimators=[("ada", reg1), ("rf", reg2), ("net", reg3), ("ridge", reg4)]
+        regressors = [
+            ("random forest", RandomForestRegressor(random_state=self.SEED, n_jobs=self.N_JOBS)),
+            ("ridge", Ridge(random_state=self.SEED)),
+            ("svr", SVR()),
+        ]
+
+        hyperparam_distributions = {
+            "random forest": {
+                "max_depth": stats.randint(5, 100),
+                "n_estimators": stats.randint(30, 800),
+                "min_samples_leaf": stats.randint(2, 20),
+                "min_samples_split": stats.randint(2, 50),
+            },
+            "svr": {
+                "kernel": ["rbf", "poly", "sigmoid", "linear"],
+                "degree":stats.randint(2, 7),
+                "epsilon": stats.uniform(0.05, 5.0),
+                "C": stats.uniform(0.0, 25.0),
+            },
+            "ridge": {"alpha": stats.uniform(0.0001, 1.0)},
+        }
+
+        for name, regressor in regressors:
+            print(f"{f'    Tuning the {name} hyperparameters...':<50}", end="")
+            hyperparam_candidates = RandomizedSearchCV(
+                regressor,
+                param_distributions=[hyperparam_distributions[name]],
+                scoring="r2",
+                random_state=self.SEED,
+                n_jobs=self.N_JOBS,
+                n_iter=self.N_RANDOM_SEARCHES,
+                verbose=0,
+            ).fit(X_train, y_train)
+            print(f"Done [CV R2 score = {hyperparam_candidates.best_score_:0.2f}]")
+            regressor.set_params(**hyperparam_candidates.best_params_)
+
+        ensemble_regressor = StackingRegressor(
+            regressors,
+            final_estimator=ElasticNetCV(
+                l1_ratio=[0.1, 0.5, 0.7, 0.9, 0.95, 0.99, 1.0],
+                cv=10,
+                n_jobs=self.N_JOBS,
+                random_state=self.SEED,
+                ),
+            n_jobs=self.N_JOBS,
+            passthrough=True,
         )
 
-        # Train the model
         try:
-            ereg.fit(X_train, y_train)
+            ensemble_regressor.fit(X_train, y_train)
         except ValueError as err:
             raise ValueError(
-                f"Error in _BuildRegrModel: Unable to fit regression model. {err}"
+                f"Error in _BuildRegrModel: Unable to fit ensemble regression model. {err}"
             )
 
-        # Assess the model performance
-        y_pred = ereg.predict(X_test)
+        # Assess the model performance using the test data
+        y_pred = ensemble_regressor.predict(X_test)
+
+        #y_pred = regressors[1][1].predict(X_test)
         regr_metrics = (
             metrics.r2_score(y_test, y_pred),
             metrics.explained_variance_score(y_test, y_pred),
@@ -526,7 +564,7 @@ class DownscaledLST:
             metrics.median_absolute_error(y_test, y_pred),
         )
 
-        return ereg, regr_metrics
+        return ensemble_regressor, regr_metrics
 
 
     def _CalcResiduals(self, DLST, LST):
@@ -608,35 +646,20 @@ class DownscaledLST:
         sys.stdout.flush()
 
 
-    def SetAdaBoostParams(self, loss, n_estimators):
-        """Set the AdaBoost regression parameters."""
-        self.params_ADAboost["loss"] = loss
-        self.params_ADAboost["n_estimators"] = n_estimators
+    def _validate_input(self, raster):
+        '''Check if the input raster is a gdal dataset with SRS attributes.'''
+        
+        if isinstance(raster, gdal.Dataset) == False:
+            raise TypeError("The input raster must be a gdal.Dataset with one or more bands.")
+        if bool(raster.GetProjection()) == False:
+            raise ValueError("The raster's proj definition is missing.")
+        if raster.GetGeoTransform() == (0.0, 1.0, 0.0, 0.0, 0.0, 1.0):
+            raise ValueError("The raster's GeoTranformation coefficients are missing.")
 
 
-    def SetRandomForestParams(
-        self, max_depth, n_estimators, min_samples_split, min_samples_leaf
-    ):
-        """Set the Random Forest Regression parameters."""
-        self.params_RF["max_depth"] = max_depth
-        self.params_RF["n_estimators"] = n_estimators
-        self.params_RF["min_samples_split"] = min_samples_split
-        self.params_RF["min_samples_leaf"] = min_samples_leaf
-
-
-    def SetElasticNetParams(self, l1_ratio, n_alphas, cv):
-        """Set the ElasticNetCV regression parameters."""
-        if n_alphas <= 0 or cv <= 0:
-            raise ValueError("n_alphas and cv must be greater than 0.")
-
-        self.params_elastNet["l1_ratio"] = l1_ratio
-        self.params_elastNet["n_alphas"] = n_alphas
-        self.params_elastNet["cv"] = cv
-
-
-    def SetRidgeRegrParams(self, alpha):
-        """Set the Ridge regression parameters."""
-        self.params_ridge["alpha"] = alpha
+    def SetNumberOfJobs(self, n_jobs):
+        """Set scikit-learn's random number generation control seed."""
+        self.N_Jobs = n_jobs
 
 
     def SetTestSize4Regr(self, test_size):
@@ -647,6 +670,13 @@ class DownscaledLST:
     def SetRandomSeed(self, seed):
         """Set scikit-learn's random number generation control seed."""
         self.SEED = seed
+
+
+    def SetRandomSearchNumber(self, n_random_searches):
+        """Set how many hyperparameter candidates will be tested."""
+        self.N_RANDOM_SEARCHES = n_random_searches
+        if n_random_searches < 60:
+            print("It is advisable to test at least 60 candidates.")
 
 
     def SetR2Threshold(self, threshold):
@@ -660,9 +690,10 @@ class DownscaledLST:
     def SetMissingPxlsThreshold(self, percentage):
         """Set the percentage of missing pixels below which a LST scene will be discarded."""
         if percentage > 100 or percentage < 0:
-            raise ValueError("The missing pixels threshold should range between 0% and 100%")
-
-        self.pxls_threshold = percentage
+            raise ValueError(
+                "The missing pixels threshold should range between 0% and 100%"
+            )
+        self.cloud_cover_threshold = percentage / 100
 
 
     def SetSupersamplingMthd(self, method):
