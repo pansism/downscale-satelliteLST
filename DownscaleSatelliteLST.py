@@ -30,7 +30,7 @@ Usage Example:
     Hyperarameter tuning trials:   60
     
     Building the regression models.
-    Processing band 0:
+      Processing band 0:
         Tuning the random forest hyperparameters...   Done [CV R2 score = 0.63]
         Tuning the ridge hyperparameters...           Done [CV R2 score = 0.48]
         Tuning the svr hyperparameters...             Done [CV R2 score = 0.59]
