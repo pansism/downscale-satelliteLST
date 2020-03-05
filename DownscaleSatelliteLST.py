@@ -183,19 +183,17 @@ class DownscaledLST:
         the upscaled predictors, and for each LST band, it builds an ensemble regression
         model that describes their relationship. If a LST band misses more pixels than the
         predefined threshold, then this band is discarded and no model is built. In addition,
-        if a model achieves a R^2 that is lower than the predifed threshold, it is also discarded.
-        The default pxl- and R^2-thresholds are 40% and 0.5, respectively. To change them use
+        if a model achieves a R2 that is lower than the predifed threshold, it is also discarded.
+        The default pxl- and R2-thresholds are 40% and 0.5, respectively. To change them use
         the setters 'SetMissingPxlsThreshold()' and 'SetR2Threshold()', respectively. After building
         all the models, this function applies each ensemble model to the given predictors so as
         to retrieve the Downscaled LST (DLST) data. If the 'residual_corr' flag is set to 'True',
         the DLST residual correction is also applied at this stage.
 
-        The spatial resolution and the SRS of the output DLST data is that of the predictors. To use this
-        function, it is mandatory to first specify the required regression parameters using the setters:
-        'SetAdaBoostParams()', 'SetRandomForestParams()', 'SetElasticNetParams()' and 'SetRidgeRegrParams()'.
-
-        The class builds a "global" regression model for each LST band and hence it should be used with data
-        that cover an area of limited extent, e.g. a city with its surroundings.
+        The spatial resolution and the SRS of the output DLST data is that of the predictors.
+        
+        The class builds a "global" regression model for each LST band and hence it should be
+        used with data that cover an area of limited extent, e.g. a city with its surroundings.
 
         Arguments:
             residual_corr {bool} -- Residual correction flag
