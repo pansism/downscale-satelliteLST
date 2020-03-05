@@ -21,6 +21,9 @@ def main():
             workdir="./Results",
         )
 
+    # Change the number of parallel jobs to 4
+    data.SetNumberOfJobs(4)
+
     # Set the R2 threshold for discarding
     # poorly-performing regression models.
     data.SetR2Threshold(0.5)
