@@ -1,3 +1,4 @@
-GDAL==2.4.2
-numpy==1.17.1
-scikit_learn==0.21.3
+scipy==1.4.1
+GDAL==3.0.4
+numpy==1.18.1
+scikit_learn==0.22.2.post1

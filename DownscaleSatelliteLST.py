@@ -215,8 +215,8 @@ class DownscaledLST:
             isinstance(residual_corr, bool) == True
         ), "The 'residual_corr' argument should be True or False."
         assert StrictVersion(sklearn.__version__) >= StrictVersion(
-            "0.21.3"
-        ), "Sklearn v.0.21.3 or greater is required."
+            "0.22.2"
+        ), "Sklearn v.0.22.2 or greater is required."
 
         print(f"\n{'Downscaling started at:':<25} {start.strftime('%d/%m/%Y, %H:%M')}")
         print("\nSETTINGS")
