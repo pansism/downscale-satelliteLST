@@ -651,7 +651,7 @@ class DownscaledLST:
 
     def SetNumberOfJobs(self, n_jobs):
         """Set scikit-learn's random number generation control seed."""
-        self.N_Jobs = n_jobs
+        self.N_JOBS = n_jobs
 
 
     def SetTestSize4Regr(self, test_size):
