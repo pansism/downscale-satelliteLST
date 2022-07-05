@@ -53,9 +53,9 @@ Usage Example:
 
 *********************************************************************************************************
 
-Version:         1.1.0
+Version:         1.1.1
 Release Date:    28 November 2019
-Last Update:     5 March 2020
+Last Update:     5 July 2022
 
 Author:          Panagiotis Sismanidis
 Address:         National Observatory of Athens, Greece
@@ -91,12 +91,12 @@ import numpy.ma as ma
 import os
 import sys
 import sklearn
+from scipy.constants import sigma
 from sklearn.svm import SVR
-from sklearn.linear_model import Ridge, RidgeCV, ElasticNetCV
+from sklearn.linear_model import Ridge, ElasticNetCV
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.preprocessing import QuantileTransformer
-from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn import metrics
 from datetime import datetime
 from osgeo import gdal, gdal_array, gdalconst, osr
@@ -173,7 +173,7 @@ class DownscaledLST:
         self.DLST = {}
         self.model_scores = {}
 
-        self.__version__ = "1.1.0"
+        self.__version__ = "1.1.1"
 
 
     def ApplyDownscaling(self, residual_corr):
@@ -226,7 +226,7 @@ class DownscaledLST:
             self.upscaled_predictors, self.predictors_NDV
         )
 
-        # Use the upsaled predictors to estimate how many the non-nan LST pxls are.
+        # Use the upscaled predictors to estimate how many the non-nan LST pxls are.
         pxl_total = np.count_nonzero(upscaled_predictors.mask.any(axis=0) == False)
 
         print(f"\nBuilding the regression models.")
@@ -234,14 +234,14 @@ class DownscaledLST:
         for i, LST_band in enumerate(LST):
             combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
             
-            y = LST_band[combined_nanmask.any(axis=0) == False]
+            y = self._LST_to_radiance(LST_band[combined_nanmask.any(axis=0) == False])
             X = upscaled_predictors[:, combined_nanmask.any(axis=0) == False].T  # Coarse resolution predictors
 
             clear_sky_pxl_perc = len(y) / pxl_total  # this is a rough estimate
 
             if clear_sky_pxl_perc >= self.cloud_cover_threshold:
                 print(f"  Processing band {i}:")
-                normal_transformer = QuantileTransformer(len(y)//2, "normal", random_state=self.SEED).fit(X)
+                normal_transformer = QuantileTransformer(n_quantiles=len(y)//2, output_distribution="normal", random_state=self.SEED).fit(X)
                 model, metrics = self._BuildRegrModel(y, normal_transformer.transform(X))
                 R2 = metrics[0]
                 print(f"{f'    The R2 score of the ensemble model is: {R2:0.2f}':<50}", end="")
@@ -300,7 +300,7 @@ class DownscaledLST:
                 DLST_array += residuals
 
             DLST_array[DLST_array == 0] = self.LST_NDV
-            self.DLST[band] = DLST_array
+            self.DLST[band] = self._radiance_to_LST(DLST_array)
 
         elapsed_time = (datetime.now() - start).total_seconds()
         print(f"\n{'Downscaling completed in:':<25} {elapsed_time:.01f} sec")
@@ -394,6 +394,16 @@ class DownscaledLST:
             print("=" * 66, file=report)
 
         print("Done")
+
+
+    def _LST_to_radiance(self, LST):
+        """Stefan-Boltzmann law"""
+        return sigma*np.power(LST, 4)
+
+
+    def _radiance_to_LST(self, radiance):
+        """Inverse of Stefan-Boltzmann law"""
+        return np.power(radiance / sigma, 0.25)
 
 
     def _GetMskdArray(self, raster, ndv):

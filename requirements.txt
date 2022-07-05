@@ -1,4 +1,9 @@
-scipy==1.4.1
-GDAL==3.0.4
-numpy==1.18.1
-scikit_learn==0.22.2.post1
+GDAL==3.5.0
+joblib==1.1.0
+numpy==1.23.0
+pip==22.1.2
+scikit-learn==1.1.1
+scipy==1.8.1
+setuptools==63.1.0
+threadpoolctl==3.1.0
+wheel==0.37.1
