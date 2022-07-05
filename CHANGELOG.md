@@ -5,7 +5,6 @@
 - `DownscaledLST()` should now be used with scikit-learn v.1.1.1.
 - `requirements.txt` was updated and `environment.yml` was added.
 - Removed unused imports. Fixed some typos.
-- The methods `_LST_to_radiance()` and `_radiance_to_LST()` were added. The regression modelling is now done in the radiance space.
 
 ## v.1.1.0 - 5 March 2020
 

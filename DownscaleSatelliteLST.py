@@ -91,7 +91,6 @@ import numpy.ma as ma
 import os
 import sys
 import sklearn
-from scipy.constants import sigma
 from sklearn.svm import SVR
 from sklearn.linear_model import Ridge, ElasticNetCV
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor
@@ -234,7 +233,7 @@ class DownscaledLST:
         for i, LST_band in enumerate(LST):
             combined_nanmask = np.logical_or(LST_band.mask, upscaled_predictors.mask)
             
-            y = self._LST_to_radiance(LST_band[combined_nanmask.any(axis=0) == False])
+            y = LST_band[combined_nanmask.any(axis=0) == False]
             X = upscaled_predictors[:, combined_nanmask.any(axis=0) == False].T  # Coarse resolution predictors
 
             clear_sky_pxl_perc = len(y) / pxl_total  # this is a rough estimate
@@ -300,7 +299,7 @@ class DownscaledLST:
                 DLST_array += residuals
 
             DLST_array[DLST_array == 0] = self.LST_NDV
-            self.DLST[band] = self._radiance_to_LST(DLST_array)
+            self.DLST[band] = DLST_array
 
         elapsed_time = (datetime.now() - start).total_seconds()
         print(f"\n{'Downscaling completed in:':<25} {elapsed_time:.01f} sec")
@@ -394,16 +393,6 @@ class DownscaledLST:
             print("=" * 66, file=report)
 
         print("Done")
-
-
-    def _LST_to_radiance(self, LST):
-        """Stefan-Boltzmann law"""
-        return sigma*np.power(LST, 4)
-
-
-    def _radiance_to_LST(self, radiance):
-        """Inverse of Stefan-Boltzmann law"""
-        return np.power(radiance / sigma, 0.25)
 
 
     def _GetMskdArray(self, raster, ndv):
