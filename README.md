@@ -72,14 +72,28 @@ For a working example check the folder [example](example).
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Reference
-If you use this class please cite:
+## References
 
-    @phdthesis{Sismanidis2018,
+If you use this class please cite the following:
+
+    @phdthesis{Sismanidis2018PhD,
         author = {Sismanidis, Panagiotis},
         pages  = {154},
         school = {National Technical University of Athens},
         title  = {{Applying Computational Methods for Processing Thermal Satellite Images of Urban Areas}},
         type   = {PhD Dissertation},
-        year   = {2018}
+        year   = {2018},
+        doi    = {10.26240/heal.ntua.3048}
+    }
+    
+    @inproceedings{sismanidis2019AGU,
+        author    = {Sismanidis, Panagiotis and Keramitsoglou, Iphigenia and Hulley, Glynn C and Kiranoudis, Christos T},
+        title     = {{Enhancing the spatial resolution of diurnal LST from geostationary satellites}},
+        booktitle = {AGU Fall Meeting Abstracts},
+        year      = {2019},
+        volume    = {2019},
+        month     = {dec},
+        eid       = {GC44C--02},
+        pages     = {GC44C--02},
+        adsurl    = {https://ui.adsabs.harvard.edu/abs/2019AGUFMGC44C..02S},
     }
