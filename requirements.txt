@@ -6,4 +6,4 @@ scikit-learn==1.1.1
 scipy==1.8.1
 setuptools==63.1.0
 threadpoolctl==3.1.0
-wheel==0.37.1
+wheel==0.38.1
