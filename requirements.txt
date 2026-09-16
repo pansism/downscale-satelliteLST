@@ -1,4 +1,4 @@
-GDAL==3.5.0
+GDAL==3.13.1
 joblib==1.2.0
 numpy==1.23.0
 pip==23.3
