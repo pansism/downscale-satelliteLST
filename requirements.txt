@@ -1,7 +1,7 @@
 GDAL==3.5.0
 joblib==1.2.0
 numpy==1.23.0
-pip==23.3
+pip==26.2
 scikit-learn==1.5.0
 scipy==1.10.0
 setuptools==70.0.0
